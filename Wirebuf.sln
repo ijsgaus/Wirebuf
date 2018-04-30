@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8713B8D9-7CC8-4236-82FB-713A2828133E}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Wirebuf.Protobuf.Parser", "src\Wirebuf.Protobuf.Parser\Wirebuf.Protobuf.Parser.fsproj", "{BA2A38F8-B773-4B67-B648-F5AC13ACCF79}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Wirebuf.Ast", "src\Wirebuf.Ast\Wirebuf.Ast.fsproj", "{CD5B1C2E-2491-4980-9AC5-C240E8C46F92}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{C31BE557-41AA-4D31-870A-F4DEDC474601}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Wrebuf.Tests", "tests\Wrebuf.Tests\Wrebuf.Tests.fsproj", "{A911385A-81ED-473A-AC87-4F443F0D2EB1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{BA2A38F8-B773-4B67-B648-F5AC13ACCF79} = {8713B8D9-7CC8-4236-82FB-713A2828133E}
+		{CD5B1C2E-2491-4980-9AC5-C240E8C46F92} = {8713B8D9-7CC8-4236-82FB-713A2828133E}
+		{A911385A-81ED-473A-AC87-4F443F0D2EB1} = {C31BE557-41AA-4D31-870A-F4DEDC474601}
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BA2A38F8-B773-4B67-B648-F5AC13ACCF79}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA2A38F8-B773-4B67-B648-F5AC13ACCF79}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA2A38F8-B773-4B67-B648-F5AC13ACCF79}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA2A38F8-B773-4B67-B648-F5AC13ACCF79}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CD5B1C2E-2491-4980-9AC5-C240E8C46F92}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD5B1C2E-2491-4980-9AC5-C240E8C46F92}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD5B1C2E-2491-4980-9AC5-C240E8C46F92}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD5B1C2E-2491-4980-9AC5-C240E8C46F92}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A911385A-81ED-473A-AC87-4F443F0D2EB1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A911385A-81ED-473A-AC87-4F443F0D2EB1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A911385A-81ED-473A-AC87-4F443F0D2EB1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A911385A-81ED-473A-AC87-4F443F0D2EB1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
