@@ -1,63 +1,68 @@
 namespace Wirebuf.Ast
-
 open System
-open System.Linq
-open System.Text
 
-type Identifier =
-    private | Identifier of string
-    static member Create str =
-        if Enumerable.All(str, fun ch -> (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'))
-        then Ok (Identifier str)
-        else Error("Identifier must contains only ascii letter")
-    static member CreateUnchecked str = Identifier str
-    override __.ToString() = let (Identifier s) = __ in s
-
-type QualifiedIdentifier =
-    private | QualifiedIdentifier of Identifier list
-    static member Create ids =
-        match ids with
-        | [] -> Error "Qualified identifier must contains at least one identifier"
-        | _ -> QualifiedIdentifier ids  |> Ok
-    static member CreateUnchecked ids = QualifiedIdentifier ids
-
-    override __.ToString() =
-        let (QualifiedIdentifier lst) = __
-        let folder (st : StringBuilder) (id : Identifier) =
-            if st.Length = 0 then st.Append(id.ToString()) else st.Append("." + id.ToString())
-        let sb = lst |> List.fold folder (StringBuilder())
-        sb.ToString()
-
-type IntLit =
-    | DecLit of string
-    | OctalLit of string
-    | HexLit of string
-
-type Sign = | Plus | Minus
+type IAstNode<'nt when 'nt : enum<int>> =
+    abstract Length : uint32
+    abstract NodeType : 'nt
+    abstract ToSource : unit -> string
 
 
-type ExponentLit = {
-    Sign : Sign
-    Digits : string
-}
+
+type WhitespaceType =
+    | Spaces = 1
+    | Tabs = 2
+    | NewLines = 3
+
+type IWhitespaceNode<'nt when 'nt : enum<int>> =
+    inherit IAstNode<'nt>
+    abstract WhitespaceType : WhitespaceType
+
+type AstNodePrefix<'nt when 'nt : enum<int>> = IWhitespaceNode<'nt> seq
+
+type IAstComplexNode<'nt when 'nt : enum<int>> =
+    inherit IAstNode<'nt>
+    abstract Prefix : AstNodePrefix<'nt>
+    abstract Nodes : IAstNode<'nt> seq
+
+module AstNode =
+    open System.Text
+
+    let length<'nt, 't when 't :> IAstNode<'nt>> (n : 't) = n.Length
+    let nodeType<'nt, 't when 't :> IAstNode<'nt>> (n : 't) = n.NodeType
+    let toSource<'nt, 't when 't :> IAstNode<'nt>> (n : 't) = n.ToSource()
+    let prefix<'nt, 't when 't :> IAstComplexNode<'nt>> (n : 't) = n.Prefix
+    let nodes<'nt, 't when 't :> IAstComplexNode<'nt>> (n : 't) = n.Nodes
+    let complexLength n = nodes n |> Seq.sumBy length
+    let complexSource n =
+        nodes n
+        |> Seq.fold (fun (st : StringBuilder) n1 -> st.Append(toSource n1)) (StringBuilder())
+        |> fun p -> p.ToString()
 
 
-type FloatLit =
-    | Nan
-    | Inf
-    | FloatLit of WholePart : string * Exponent : (ExponentLit option)
+[<AbstractClass>]
+type ComplexNode<'nt when 'nt : enum<int>>(items : IAstNode<'nt> seq) =
+    member __.Nodes = items |> List.ofSeq
+    abstract NodeType : 'nt
+    interface IAstComplexNode<'nt> with
+        member __.Prefix =
+            items
+            |> Seq.takeWhile (fun p -> p :? IWhitespaceNode<'nt>)
+            |> Seq.map (fun p -> p :?> IWhitespaceNode<'nt>)
+        member __.Nodes = __.Nodes |> Seq.ofList
+        member __.NodeType = __.NodeType
+        member __.Length = AstNode.complexLength __
+        member __.ToSource() = AstNode.complexSource __
+    override __.GetHashCode() = __.Nodes.GetHashCode()
+    override __.Equals other =
+        if other = null
+        then false
+        else
+            if __.GetType() <> other.GetType()
+            then false
+            else __.Nodes = (other :?> ComplexNode<'nt>).Nodes
 
-type Quote = | SingleQuote | DoubleQuote
-type StrLit = {
-    Quote : Quote
-    Value : string
-}
 
-type Constant =
-    | IdentConst of QualifiedIdentifier
-    | IntConst of Sign * IntLit
-    | FloatConst of Sign * FloatLit
-    | StrConst of StrLit
-    | BoolConst of bool
+
+
 
 

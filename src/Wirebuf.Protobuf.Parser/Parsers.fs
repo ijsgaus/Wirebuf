@@ -3,7 +3,7 @@ namespace Wirebuf.Protobuf.Parser
 open System
 open System.Text
 open FParsec
-open Wirebuf.Ast
+open Wirebuf.Protobuf.Ast
 
 [<AutoOpen>]
 module Parsers =
@@ -20,7 +20,7 @@ module Parsers =
                 let sb = StringBuilder()
                 sb.Append(a) |> ignore
                 b |> Seq.fold (fun (st : StringBuilder) p -> st.Append p) sb |> ignore
-                sb.ToString() |> Identifier.CreateUnchecked
+                sb.ToString() |> Ident.CreateUnchecked
 
     let private  inOneId (a, b) =  List.append [a] b
     let private  inOneIdLst (a, b) =  List.append a [b]
@@ -30,7 +30,7 @@ module Parsers =
 
     let pfullIdent<'a> : Parser<_, 'a> =
         let tail = pchar '.' >>. pident
-        (pident .>>. many tail) |>> (inOneId >> QualifiedIdentifier.CreateUnchecked)
+        (pident .>>. many tail) |>> (inOneId >> FullIdent.CreateUnchecked)
 
     let pmessageName<'a> : Parser<_, 'a>  = pident
     let penumName<'a> : Parser<_, 'a> = pident
@@ -41,10 +41,10 @@ module Parsers =
     let prpcName<'a> : Parser<_, 'a> = pident
 
     let pmessageType<'a> : Parser<_, 'a> =
-        opt (pchar '.') >>. (many pident) .>>. pmessageName |>> (inOneIdLst >> QualifiedIdentifier.CreateUnchecked)
+        opt (pchar '.') >>. (many pident) .>>. pmessageName |>> (inOneIdLst >> FullIdent.CreateUnchecked)
 
     let penumType<'a> : Parser<_, 'a> =
-        opt (pchar '.') >>. (many pident) .>>. penumName |>> (inOneIdLst >> QualifiedIdentifier.CreateUnchecked)
+        opt (pchar '.') >>. (many pident) .>>. penumName |>> (inOneIdLst >> FullIdent.CreateUnchecked)
 
     // Integer literals
 
@@ -63,15 +63,16 @@ module Parsers =
 
     let psign<'a> : Parser<_, 'a> =
         opt (anyOf "+-")
-        |>> (fun p -> p |> Option.map (fun p -> if p = '-' then Minus else Plus) |> Option.defaultValue Plus)
+        |>> (fun p -> p |> Option.map (fun p -> if p = '-' then Minus else Plus))
 
     let pexponent<'a> : Parser<_, 'a> =
-        let mapper (sign, digits) =
+        let mapper ((upper, sign), digits) =
             {
+                IsUpper = upper
                 Sign = sign
                 Digits = digits
             }
-        anyOf "eE" >>. psign .>>. pdecimals |>> mapper
+        anyOf "eE" |>> (fun p -> p = 'E') .>>. psign .>>. pdecimals |>> mapper
 
     let pfloatLit<'a> : Parser<_, 'a> =
         let pinf : Parser<_, 'a> = pstring "inf" |>> fun _ -> Inf
@@ -87,7 +88,7 @@ module Parsers =
         let pf : Parser<_, 'a> =
             attempt pf1 <|> attempt pf2 <|> pf3
         attempt pf <|> pinf <|> pnan
-
+(*
     // Boolean
     let pboolLit<'a> : Parser<_, 'a> =
         (pstring "true" |>> fun _ -> true) <|> (pstring "false" |>> fun _ -> false)
@@ -161,3 +162,33 @@ module Parsers =
         <|> attempt (pstrLit |>> StrConst)
         <|> (pfullIdent |>> IdentConst)
 
+    // Syntax
+    let psyntax<'a> : Parser<_, 'a> =
+        pstring "syntax"
+        .>> ws
+        .>> pchar '='
+        .>> ws
+        >>. (between (pstring "\"") (pstring "\"") (pstring "proto3" |>> fun _ -> 3))
+        .>> ws
+        .>> pchar ';'
+
+    let pimport<'a> : Parser<_, 'a> =
+        let pkind : Parser<_, 'a> =
+            opt (pstring "weak" <|> (pstring "public"))
+            |>> fun p -> p |> Option.map (fun t -> if t = "weak" then WeakImport else PublicImport)
+        pstring "import"
+        .>> ws
+        >>. pkind
+        .>> ws
+        .>>. pstrLit
+        .>> ws
+        .>> pchar ';'
+        |>> fun (a, b) -> { ImportStatement.Kind = a; Path = b }
+
+    let ppackage<'a> : Parser<_, 'a> =
+        pstring "package"
+        .>> ws
+        >>. pfullIdent
+        .>> ws
+        .>> pchar ';'
+*)
