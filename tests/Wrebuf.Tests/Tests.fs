@@ -23,49 +23,49 @@ type ParserTests() =
     [<Fact>]
     member  __.``Letter gold path``() =
         let test = "A"
-        Assert.Parse(letter, test.[0], test)
+        Assert.Parse(pletter, test.[0], test)
     [<Fact>]
     member  __.``Letter invalid chars``() =
         let test = "Б"
-        Assert.NotParse(letter, test)
+        Assert.NotParse(pletter, test)
 
     [<Fact>]
     member  __.``Decimal digit gold path``() =
         let test = "1"
-        Assert.Parse(decimalDigit, test.[0], test)
+        Assert.Parse(pdecimalDigit, test.[0], test)
     [<Fact>]
     member  __.``Decimal digit invalid chars``() =
         let test = "БEF"
-        Assert.NotParse(decimalDigit, test)
+        Assert.NotParse(pdecimalDigit, test)
 
 
     [<Fact>]
     member  __.``Octal digit gold path``() =
         let test = "1"
-        Assert.Parse(octalDigit, test.[0], test)
+        Assert.Parse(poctalDigit, test.[0], test)
     [<Fact>]
     member  __.``Octal digit invalid chars``() =
         let test = "9"
-        Assert.NotParse(octalDigit, test)
+        Assert.NotParse(poctalDigit, test)
 
     [<Fact>]
     member  __.``Hexadecimal digit gold path``() =
         let test = "A"
-        Assert.Parse(hexDigit, test.[0], test)
+        Assert.Parse(phexDigit, test.[0], test)
 
     [<Fact>]
     member  __.``Hexadecimal digit invalid chars``() =
         let test = "БEF"
-        Assert.NotParse(hexDigit, test)
+        Assert.NotParse(phexDigit, test)
 
     [<Fact>]
     member  __.``Identifier gold path``() =
         let test = "Abc12_def"
-        Assert.Parse(ident, Identifier.CreateUnchecked test, test)
+        Assert.Parse(pident, Identifier.CreateUnchecked test, test)
     [<Fact>]
     member  __.``Identifier invalid chars``() =
         let test = "БEF"
-        Assert.NotParse(ident, test)
+        Assert.NotParse(pident, test)
 
     [<Fact>]
     member  __.``Qualified identifier gold path``() =
@@ -74,45 +74,63 @@ type ParserTests() =
                 Identifier.CreateUnchecked "Abc123"
                 Identifier.CreateUnchecked "def"
             ]
-        Assert.Parse(fullIdent, test, test.ToString())
+        Assert.Parse(pfullIdent, test, test.ToString())
     [<Fact>]
     member  __.``Qualified identifier invalid chars``() =
         let test = "asdncfg..asdf"
-        Assert.NotParse(fullIdent, test)
+        Assert.NotParse(pfullIdent, test)
 
     [<Fact>]
     member __.``Parse decimal literal``() =
         let test = "129345"
-        Assert.Parse(decimalLit, DecLit test, test)
+        Assert.Parse(pdecimalLit, DecLit test, test)
 
     [<Fact>]
     member __.``Parse octal literal``() =
         let test = "012345"
-        Assert.Parse(octalLit, OctalLit test, test)
+        Assert.Parse(poctalLit, OctalLit test, test)
 
     [<Fact>]
     member __.``Parse hex literal``() =
         let test = "0x12345"
-        Assert.Parse(hexLit, HexLit "12345", test)
+        Assert.Parse(phexLit, HexLit "12345", test)
 
     [<Fact>]
     member __.``Parse int literal``() =
-        Assert.Parse(intLit, DecLit "9898", "9898")
-        Assert.Parse(intLit, OctalLit "01234", "01234")
-        Assert.Parse(intLit, HexLit "12A34", "0x12A34")
+        Assert.Parse(pintLit, DecLit "9898", "9898")
+        Assert.Parse(pintLit, OctalLit "01234", "01234")
+        Assert.Parse(pintLit, HexLit "12A34", "0x12A34")
 
 
     [<Fact>]
     member __.``Parse float literal``() =
-        Assert.Parse(floatLit, Nan , "nan")
-        Assert.Parse(floatLit, Inf , "inf")
-        Assert.Parse(floatLit, FloatLit("22.", None)  , "22.")
-        Assert.Parse(floatLit, FloatLit("22.22", None)  , "22.22")
-        Assert.Parse(floatLit, FloatLit("22.22", { Sign = Plus; Digits = "22" } |> Some)  , "22.22E22")
-        Assert.Parse(floatLit, FloatLit("22.22", { Sign = Minus; Digits = "22" } |> Some)  , "22.22E-22")
-        Assert.Parse(floatLit, FloatLit("22", { Sign = Plus; Digits = "22" } |> Some)  , "22E22")
-        Assert.Parse(floatLit, FloatLit(".22", { Sign = Plus; Digits = "22" } |> Some)  , ".22E22")
+        Assert.Parse(pfloatLit, Nan , "nan")
+        Assert.Parse(pfloatLit, Inf , "inf")
+        Assert.Parse(pfloatLit, FloatLit("22.", None)  , "22.")
+        Assert.Parse(pfloatLit, FloatLit("22.22", None)  , "22.22")
+        Assert.Parse(pfloatLit, FloatLit("22.22", { Sign = Plus; Digits = "22" } |> Some)  , "22.22E22")
+        Assert.Parse(pfloatLit, FloatLit("22.22", { Sign = Minus; Digits = "22" } |> Some)  , "22.22E-22")
+        Assert.Parse(pfloatLit, FloatLit("22", { Sign = Plus; Digits = "22" } |> Some)  , "22E22")
+        Assert.Parse(pfloatLit, FloatLit(".22", { Sign = Plus; Digits = "22" } |> Some)  , ".22E22")
 
+    [<Fact>]
+    member __.``Parse string literal``() =
+        Assert.Parse(pstrLit, { Quote = DoubleQuote; Value ="ABCDEF\n" }, "\"ABCDEF\\n\"")
+        Assert.Parse(pstrLit, { Quote = SingleQuote; Value ="ABCDEF\n" }, "'ABCDEF\\n'")
+        Assert.Parse(pstrLit, { Quote = SingleQuote; Value ="ABCDEF\n" }, "'ABCDEF\\x0A'")
+
+    [<Fact>]
+    member __.``Parse constant``() =
+        Assert.Parse(pconstant, { Quote = DoubleQuote; Value ="ABCDEF\n" } |> StrConst, "\"ABCDEF\\n\"")
+        Assert.Parse(pconstant, (Minus, "1234" |> DecLit) |> IntConst, "- 1234")
+        Assert.Parse(pconstant, (Minus, ("1234.56", None) |> FloatLit) |> FloatConst, "- 1234.56")
+        Assert.Parse(pconstant, true |> BoolConst, "true")
+        let test =
+                    QualifiedIdentifier.CreateUnchecked [
+                        Identifier.CreateUnchecked "Abc123"
+                        Identifier.CreateUnchecked "def"
+                    ]
+        Assert.Parse(pconstant, test |> IdentConst, test.ToString())
 
 
 

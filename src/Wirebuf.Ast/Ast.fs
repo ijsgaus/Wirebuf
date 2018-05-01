@@ -47,3 +47,17 @@ type FloatLit =
     | Inf
     | FloatLit of WholePart : string * Exponent : (ExponentLit option)
 
+type Quote = | SingleQuote | DoubleQuote
+type StrLit = {
+    Quote : Quote
+    Value : string
+}
+
+type Constant =
+    | IdentConst of QualifiedIdentifier
+    | IntConst of Sign * IntLit
+    | FloatConst of Sign * FloatLit
+    | StrConst of StrLit
+    | BoolConst of bool
+
+
