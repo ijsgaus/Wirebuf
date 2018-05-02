@@ -2,9 +2,10 @@ namespace Wirebuf.Protobuf.Ast
 
 open FParsec
 open System
-open System.Data.SqlTypes
 open System.Linq
+open System.Net
 open System.Text
+open Wirebuf.Ast
 open Wirebuf.Ast
 
 type AstNodeType =
@@ -12,58 +13,54 @@ type AstNodeType =
     | Tabs = 2
     | NewLines = 3
     | Ident = 4
-    | PunctuationSign = 5
-    | Punctuation = 6
-    | FullIdent = 7
-    | IntLit = 8
-    | IntLitNode = 9
-    | Sign = 10
-    | SignNode = 11
-    | Exponent = 12
-    | FloatLit = 13
+    | FullIdent = 5
+    | IntLit = 6
+    | IntLitNode = 7
+    | Dot = 8
+    | Sign = 9
+    | Exponent = 10
+    | FloatLit = 11
+    | StrLit = 12
+    | Const = 13
+    | ConstValue = 14
+    | ConstNode = 15
+    | Semicolon = 16
+    | EmptyStatement = 17
+
+
 
 type IAstNode = IAstNode<AstNodeType>
 type AstNodePrefix = AstNodePrefix<AstNodeType>
+type IWhitespaceNode = IWhitespaceNode<AstNodeType>
 
 type WhiteSpaces =
-    | Space of uint32
+    | Spaces of uint32
     | Tabs of uint32
-    | NewLine of string
+    | NewLines of string
     interface IWhitespaceNode<AstNodeType> with
         member __.Length =
             match __ with
-            | Space(cnt) -> cnt
+            | Spaces(cnt) -> cnt
             | Tabs(cnt) -> cnt
-            | NewLine(str) -> uint32 str.Length
+            | NewLines(str) -> uint32 str.Length
         member __.NodeType =
             match __ with
-            | Space(_) -> AstNodeType.Spaces
+            | Spaces(_) -> AstNodeType.Spaces
             | Tabs(_) -> AstNodeType.Tabs
             | NewLine(_) -> AstNodeType.NewLines
         member __.ToSource() =
             match __ with
-            | Space(cnt) -> String.replicate (int32 cnt) " "
+            | Spaces(cnt) -> String.replicate (int32 cnt) " "
             | Tabs(cnt) -> String.replicate (int32 cnt) "\t"
-            | NewLine(str) -> str
+            | NewLines(str) -> str
         member __.WhitespaceType =
             match __ with
-            | Space(_) -> WhitespaceType.Spaces
+            | Spaces(_) -> WhitespaceType.Spaces
             | Tabs(_) -> WhitespaceType.Tabs
-            | NewLine(_) -> WhitespaceType.NewLines
+            | NewLines(_) -> WhitespaceType.NewLines
 
 type IAstComplexNode = IAstComplexNode<AstNodeType>
 
-type PunctuationSign =
-    | PunctuationSign of string
-    interface IAstNode with
-        member __.Length = let (PunctuationSign s) = __ in uint32 s.Length
-        member __.NodeType =  AstNodeType.PunctuationSign
-        member __.ToSource() = let (PunctuationSign s) = __ in s
-
-type PunctuationNode(prefix : IWhitespaceNode<AstNodeType> list, sign : PunctuationSign) =
-    inherit ComplexNode<AstNodeType>(prefix.Cast<IAstNode>().Union([sign]))
-    member __.Sign = sign
-    override __.NodeType = AstNodeType.Punctuation
 
 
 type Ident =
@@ -77,6 +74,13 @@ type Ident =
         member __.Length = let (Ident s) = __ in uint32 s.Length
         member __.NodeType = AstNodeType.Ident
         member __.ToSource() = let (Ident s) = __ in s
+
+type DotSymbol =
+    | Dot
+    interface IAstNode with
+        member __.Length = 1u
+        member __.ToSource() = "."
+        member __.NodeType = AstNodeType.Dot
 
 
 type FullIdent =
@@ -102,7 +106,7 @@ type FullIdent =
             | [id] -> yield (id :> IAstNode)
             | id :: rest ->
                 yield (id :> IAstNode)
-                yield! (rest |> Seq.collect (fun o -> [ PunctuationSign "." :> IAstNode; o :> IAstNode ]))
+                yield! (rest |> Seq.collect (fun o -> [ Dot :> IAstNode; o :> IAstNode ]))
         }
         member __.Length = AstNode.complexLength __
         member __.ToSource() = AstNode.complexSource __
@@ -139,10 +143,7 @@ type Sign =
         member __.ToSource() =
             match __ with | Plus -> "+" | Minus -> "-"
 
-type SignNode(prefix : IWhitespaceNode<AstNodeType> seq, sign : Sign) =
-     inherit ComplexNode<AstNodeType>(prefix.Cast<IAstNode>().Union([sign]))
-     override __.NodeType = AstNodeType.SignNode
-     member __.Sign = sign
+
 
 
 type ExponentLit =
@@ -185,19 +186,72 @@ type FloatLit =
 
 
 type Quote = | SingleQuote | DoubleQuote
-(*
-type StrLit = {
-    Quote : Quote
-    Value : string
-}
 
-type Constant =
-    | IdentConst of QualifiedIdentifier
-    | IntConst of Sign * IntLit
-    | FloatConst of Sign * FloatLit
+
+
+type StrLit =
+    {
+        Quote : Quote
+        Original : string
+        Value : string
+    }
+    interface IAstNode with
+        member __.Length = (uint32 __.Original.Length) + 2u
+        member __.ToSource() =
+            let ch = match __.Quote with | SingleQuote -> "'" | DoubleQuote -> "\""
+            ch + __.Original + ch
+        member __.NodeType = AstNodeType.StrLit
+
+
+
+type Const =
+    | IdentConst of FullIdent
+    | IntConst of IntLit
+    | FloatConst of FloatLit
     | StrConst of StrLit
     | BoolConst of bool
+    interface  IAstNode with
+        member __.Length =
+            match __ with
+            | IdentConst id -> AstNode.length id
+            | IntConst i -> AstNode.length i
+            | FloatConst f -> AstNode.length f
+            | StrConst s -> AstNode.length s
+            | BoolConst b -> if b then 4u else 5u
+        member __.ToSource() =
+            match __ with
+            | IdentConst id -> AstNode.toSource id
+            | IntConst i -> AstNode.toSource i
+            | FloatConst f -> AstNode.toSource f
+            | StrConst s -> AstNode.toSource s
+            | BoolConst b -> if b then "true" else "false"
+        member  __.NodeType = AstNodeType.Const
 
+type ConstValueNode(prefix, cn) =
+    inherit ComplexNode<AstNodeType, Const>(prefix, cn, AstNodeType.ConstValue)
+
+
+type ConstNode(prefix : AstNodePrefix, sign : Sign option, c : ComplexNode<AstNodeType, Const>) =
+    inherit ComplexNode<AstNodeType>(prefix.Cast<IAstNode>()
+                                          .Union(sign |> Option.map Seq.singleton<IAstNode> |> Option.defaultValue Seq.empty)
+                                          .Union([c]))
+    override __.NodeType = AstNodeType.ConstNode
+    member __.Sign = sign
+    member __.ValueNode = c
+    member __.Value = c.Value
+
+type SemicolonSymbol =
+    | Semicolon
+    interface IAstNode with
+        member __.Length = 1u
+        member __.ToSource() = ";"
+        member __.NodeType = AstNodeType.Semicolon
+
+type EmptyStatement(prefix) =
+    inherit ComplexNode<AstNodeType, SemicolonSymbol>(prefix, Semicolon, AstNodeType.EmptyStatement)
+
+
+(*
 type ImportKind = | WeakImport | PublicImport
 
 type ImportStatement = {
@@ -205,5 +259,6 @@ type ImportStatement = {
     Path : StrLit
 }
 *)
+
 
 

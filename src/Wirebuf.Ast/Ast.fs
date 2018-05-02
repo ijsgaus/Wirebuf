@@ -1,5 +1,6 @@
 namespace Wirebuf.Ast
 open System
+open System.Linq
 
 type IAstNode<'nt when 'nt : enum<int>> =
     abstract Length : uint32
@@ -47,7 +48,7 @@ type ComplexNode<'nt when 'nt : enum<int>>(items : IAstNode<'nt> seq) =
         member __.Prefix =
             items
             |> Seq.takeWhile (fun p -> p :? IWhitespaceNode<'nt>)
-            |> Seq.map (fun p -> p :?> IWhitespaceNode<'nt>)
+            |> Seq.cast<IWhitespaceNode<'nt>>
         member __.Nodes = __.Nodes |> Seq.ofList
         member __.NodeType = __.NodeType
         member __.Length = AstNode.complexLength __
@@ -60,6 +61,26 @@ type ComplexNode<'nt when 'nt : enum<int>>(items : IAstNode<'nt> seq) =
             if __.GetType() <> other.GetType()
             then false
             else __.Nodes = (other :?> ComplexNode<'nt>).Nodes
+
+type ComplexNode<'nt, 't when 'nt : enum<int> and 't :> IAstNode<'nt>>(prefix : IWhitespaceNode<'nt> seq, item: 't, nt : 'nt) =
+    let nodes = prefix.Cast<IAstNode<'nt>>().Union([item]) |> Seq.toList
+    member __.Nodes = nodes
+    member __.NodeType  = nt
+    member __.Value = item
+    interface IAstComplexNode<'nt> with
+        member __.Prefix = prefix
+        member __.Nodes = __.Nodes |> Seq.ofList
+        member __.NodeType = __.NodeType
+        member __.Length = AstNode.complexLength __
+        member __.ToSource() = AstNode.complexSource __
+    override __.GetHashCode() = __.Nodes.GetHashCode()
+    override __.Equals other =
+        if other = null
+        then false
+        else
+            if __.GetType() <> other.GetType()
+            then false
+            else __.Nodes = (other :?> ComplexNode<'nt, 't>).Nodes
 
 
 

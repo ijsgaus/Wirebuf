@@ -117,13 +117,13 @@ type ParserTests() =
         Assert.ParseNode(pfloatLit, FloatLit("22.22", { IsUpper = false; Sign = Some Minus; Digits = "22" } |> Some)  , "22.22e-22")
         Assert.ParseNode(pfloatLit, FloatLit("22", { IsUpper = true; Sign = None; Digits = "22" } |> Some)  , "22E22")
         Assert.ParseNode(pfloatLit, FloatLit(".22", { IsUpper = false; Sign = Some Plus; Digits = "22" } |> Some)  , ".22e+22")
-(*
+
     [<Fact>]
     member __.``Parse string literal``() =
-        Assert.Parse(pstrLit, { Quote = DoubleQuote; Value ="ABCDEF\n" }, "\"ABCDEF\\n\"")
-        Assert.Parse(pstrLit, { Quote = SingleQuote; Value ="ABCDEF\n" }, "'ABCDEF\\n'")
-        Assert.Parse(pstrLit, { Quote = SingleQuote; Value ="ABCDEF\n" }, "'ABCDEF\\x0A'")
-
+        Assert.Parse(pstrLit, { Quote = DoubleQuote; Original = "ABCDEF\\n"; Value ="ABCDEF\n" }, "\"ABCDEF\\n\"")
+        Assert.Parse(pstrLit, { Quote = SingleQuote; Original = "ABCDEF\\n"; Value ="ABCDEF\n" }, "'ABCDEF\\n'")
+        Assert.Parse(pstrLit, { Quote = SingleQuote; Original = "ABCDEF\\x0A"; Value ="ABCDEF\n" }, "'ABCDEF\\x0A'")
+(*
     [<Fact>]
     member __.``Parse constant``() =
         Assert.Parse(pconstant, { Quote = DoubleQuote; Value ="ABCDEF\n" } |> StrConst, "\"ABCDEF\\n\"")

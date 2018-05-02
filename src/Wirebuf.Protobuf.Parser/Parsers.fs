@@ -2,11 +2,14 @@ namespace Wirebuf.Protobuf.Parser
 
 open System
 open System.Text
+open System.Linq
 open FParsec
 open Wirebuf.Protobuf.Ast
 
 [<AutoOpen>]
 module Parsers =
+    open Wirebuf.Ast
+
     // Letters and digits
     let pletter<'a>  : Parser<_, 'a> = asciiLetter
     let pdecimalDigit<'a> : Parser<_, 'a> = anyOf "0123456789"
@@ -88,7 +91,7 @@ module Parsers =
         let pf : Parser<_, 'a> =
             attempt pf1 <|> attempt pf2 <|> pf3
         attempt pf <|> pinf <|> pnan
-(*
+
     // Boolean
     let pboolLit<'a> : Parser<_, 'a> =
         (pstring "true" |>> fun _ -> true) <|> (pstring "false" |>> fun _ -> false)
@@ -99,28 +102,32 @@ module Parsers =
     let private toUtf8Bytes (str : string) = Encoding.UTF8.GetBytes(str)
 
     let pcharEscape<'a> : Parser<_, 'a> =
-        pchar '\\' >>. anyOf "abfnrtv\\\'\""
-            |>> fun ch ->
-                    match ch with
-                    | 'a' -> "\a"
-                    | 'b' -> "\b"
-                    | 'f' -> "\f"
-                    | 'n' -> "\n"
-                    | 'r' -> "\r"
-                    | 't' -> "\t"
-                    | 'v' -> "\v"
-                    | '\\' -> "\\"
-                    | '\''  -> "'"
-                    | '"' -> "\""
-                    | _ -> invalidArg "ch" (sprintf "Unknown character value '%A'" ch)
-            |>> toUtf8Bytes
+        pchar '\\'
+            .>>. anyOf "abfnrtv\\\'\""
+            |>> (fun (ch1, ch2) -> ch2, ch1.ToString() + ch2.ToString())
+            |>> fun (ch, str) ->
+                    let s = match ch with
+                            | 'a' -> "\a"
+                            | 'b' -> "\b"
+                            | 'f' -> "\f"
+                            | 'n' -> "\n"
+                            | 'r' -> "\r"
+                            | 't' -> "\t"
+                            | 'v' -> "\v"
+                            | '\\' -> "\\"
+                            | '\''  -> "'"
+                            | '"' -> "\""
+                            | _ -> invalidArg "ch" (sprintf "Unknown character value '%A'" ch)
+                    toUtf8Bytes s, str
+
 
     let poctEscape<'a> : Parser<_, 'a> =
         let octToInt ch = int(ch) - int('0')
-        let mapper (v : char[]) =
+        let mapper (sl, v : char[]) =
             if v.[0] > '3' then invalidArg "v.[0]" "Octal escape to big"
-            (octToInt v.[0]) * 64 + (octToInt v.[1]) * 8 + (octToInt v.[2]) |> byte |> fun p -> [| p |]
-        pchar '\\' >>. parray 3 poctalDigit |>> mapper
+            let bytes = (octToInt v.[0]) * 64 + (octToInt v.[1]) * 8 + (octToInt v.[2]) |> byte |> fun p -> [| p |]
+            bytes, sl.ToString() + v.[0].ToString() + v.[1].ToString() + v.[2].ToString()
+        pchar '\\' .>>. parray 3 poctalDigit |>> mapper
 
 
     let phexEscape<'a> : Parser<_, 'a> =
@@ -130,29 +137,42 @@ module Parsers =
             | 'A' | 'B' | 'C' | 'D' | 'E' | 'F'  -> int(ch) - int('A') + 10
             | 'a' | 'b' | 'c' | 'd' | 'e' | 'f'  -> int(ch) - int('a') + 10
             | _ -> invalidArg "ch" (sprintf "Unknown character value '%A'" ch)
-        let mapper (v : char[]) =
-            (hexToInt v.[0]) * 16 + (hexToInt v.[1]) |> byte |> fun p -> [| p |]
-        pchar '\\' >>. anyOf "xX" >>. parray 2 phexDigit |>> mapper
+        let mapper ((sl, x), v : char[]) =
+            let bytes = (hexToInt v.[0]) * 16 + (hexToInt v.[1]) |> byte |> fun p -> [| p |]
+            bytes, sl.ToString() + x.ToString() + v.[0].ToString() + v.[1].ToString()
+        pchar '\\' .>>. anyOf "xX" .>>. parray 2 phexDigit |>> mapper
 
 
     let pcharValue<'a> : Parser<_, 'a> =
         let simpleChar =
-            noneOf "\0\n\\\"'" |>> (fun p -> p.ToString()) |>> toUtf8Bytes
+            noneOf "\0\n\\\"'" |>> (fun p -> p.ToString() |> toUtf8Bytes, p.ToString() )
         attempt phexEscape <|> attempt poctEscape <|> attempt pcharEscape <|> simpleChar
 
     let pstrLit<'a> : Parser<_, 'a> =
-        let joinArrays arr =
-            let farr = arr |> List.fold (fun (st : ResizeArray<_>) v -> st.AddRange(v); st ) (ResizeArray<_>())
-            Encoding.UTF8.GetString(farr.ToArray())
+        let mapper quote arr =
+            let farr = arr |> List.map fst |> List.fold (fun (st : ResizeArray<_>) v -> st.AddRange(v); st ) (ResizeArray<_>())
+            let str = arr |> List.map snd |> List.fold (fun (st : StringBuilder) (v : string) -> st.Append(v)) (StringBuilder())
+            { Quote = quote; Value = Encoding.UTF8.GetString(farr.ToArray());  Original = str.ToString() }
 
-        let squote1 = pchar '\'' >>. many (attempt pcharValue) .>> pchar '\'' |>> fun s -> {Quote = SingleQuote; Value = joinArrays(s) }
-        let squote2 = pchar '"' >>. many (attempt pcharValue) .>> pchar '"' |>> fun s -> {Quote = DoubleQuote; Value = joinArrays(s) }
+
+        let squote1 = pchar '\'' >>. many (attempt pcharValue) .>> pchar '\'' |>> mapper SingleQuote
+        let squote2 = pchar '"' >>. many (attempt pcharValue) .>> pchar '"' |>> mapper DoubleQuote
         squote1 <|> squote2
 
-    // EmptyStatement
-    let pemptyStatement<'a> : Parser<_, 'a> =  pstring ";"
+    let private ws<'a> : Parser<_, 'a> =
+        let nl : Parser<_, 'a> =
+            many1 (pstring "\n" <|> pstring "\r\n" <|> pstring "\r") |>> fun p -> NewLines(String.Concat(p))
+        let sp : Parser<_, 'a> =
+            many1 (pstring " ") |>> fun p -> Spaces(List.length p |> uint32)
+        let tb : Parser<_, 'a> =
+            many1 (pstring "\t") |>> fun p -> Tabs(List.length p |> uint32)
+        many (nl <|> sp <|> tb)
 
-    let private ws<'a> : Parser<_, 'a> = spaces
+
+    // EmptyStatement
+    let pemptyStatement<'a> : Parser<_, 'a> = ws .>> pstring ";" |>> fun p -> EmptyStatement(p.Cast<IWhitespaceNode>())
+(*
+
 
     // Constant
     let pconstant<'a> : Parser<_, 'a> =
